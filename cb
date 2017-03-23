@@ -1,0 +1,86 @@
+#!/bin/bash
+#max number of simultaneous streams
+maxjobcount=3               
+#increase delay by n minutes for every retry
+backoff=0                   
+#list of cams to check
+list=$HOME/cb/list.txt      
+#auto add streams to cam list
+autoadd=yes
+#where to write output
+outputdir=$HOME/cb/out/     
+#archive command (<src> <dst> args are added later) and destination
+archive_command="rclone --no-check-certificate=true move"
+archive_dest="acd-cam:incoming/"
+#stream recorder app
+livestreamer=streamlink
+
+maxjobs() {
+   while [ `jobs | wc -l` -ge $maxjobcount ]
+   do
+      sleep 5
+   done
+}
+
+archivestream() {
+    file=$outputdir/$1
+    ffmpeg -nostdin -loglevel error -i "$file.flv" -vcodec copy -acodec libmp3lame "$file.mp4" && rm "$file.flv" && [ -n "$archive_command" ] && $archive_command $file.mp4 $archive_dest
+}
+
+getstream () {
+    local user=$1
+    local date=$(date +%Y-%m-%d.%H-%M)
+    local outfile="$outputdir/$user-$date.flv"
+    $livestreamer -O http://chaturbate.com/$user best > $outfile ; out=$?
+    [ -s $outfile ] && archivestream $user-$date || rm -f $outfile
+    return $out
+}
+
+loopstream() {
+    local user=$1
+    local count=1
+    local delay=1
+    until [[ $count -eq 0 || $count -eq 10 ]] ; do 
+	getstream $user
+	count=$((${count}+${out}))
+	delay=$((${delay}+${backoff}))
+	echo count: $count delay: $delay
+	sleep ${delay}m
+    done
+}    
+
+findstream() {
+    for cam in $(tac $list|sed -e 'sShttp[s]*://chaturbate.com/SS' -e 'sS/$SS'); do
+	ps ax|grep -q [c]haturbate.com/$cam || (getstream $cam && loopstream $cam)
+    done
+}    
+
+sanitizeurl() {
+    echo $1|sed -e 'sShttp[s]*://chaturbate.com/SS' -e 'sS/$SS'
+}
+
+add() {
+    local cam=$(sanitizeurl $1)
+    grep -q $cam $list || echo $cam >> $list
+}
+
+daemon() {
+#main loop, wait up to 1 minute between starting new jobs
+while [ . ]; do 
+   maxjobs; findstream &
+   sleep $(($RANDOM/540))s
+done
+wait
+}
+
+[ -z "$1" ] && echo "$0 [daemon]|[add|save <cam>]" && exit 1
+
+[ "$1" == "daemon" ] && daemon
+
+[ -z "$2" ] && echo "$0 [add|save] <cam>" && exit 1
+
+[ "$1" == "add" ] && add $2
+[ "$1" == "save" ] && cam=$(sanitizeurl $2) && getstream $cam && loopstream $cam
+
+
+
