@@ -5,10 +5,10 @@ Currently contains a script to assist in automatically downloading cams from cha
 
 The script is named cb and takes several arguments. 
 * **save** followed by a room name or URL will save a live room.  It will retry for some time if the room goes away, in case it returns shortly.
-* **"add** followed by a room or URL will add it to the download list.
-* **daemon** looks at your download list, and tries to download each one, latest first.  If the room is not up, it goes on to the next.  It will not try to capture more than a set number (3 by default) of streams at once so as not to consume all of your bandwidth.  After a stream ends, it reencodes the audio to fix the A/V sync, and then optionally archives the file.  All of the configuration is in variables in the first few lines of the script.
+* **add** followed by a room or URL will add it to the download list.
+* **daemon** runs continually.  It looks at your download list, and tries to download each one, latest first.  If the room is not up, it goes on to the next.  It will not try to capture more than a set number (3 by default) of streams at once so as not to consume all of your bandwidth.  After a stream ends, it reencodes the audio to fix the A/V sync, and then optionally archives the file.  All of the configuration is in variables in the first few lines of the script.
 
-Both save and daemon will also optionally archive files to a remote location once finished.
+Both save and daemon will also optionally archive files to a remote location once finished.  Other configuration options are at the top of the script.
 
 Requirements:
 * [rtmpdump](http://rtmpdump.mplayerhq.hu/) - needed for streamlink
