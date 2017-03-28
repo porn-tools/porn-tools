@@ -5,7 +5,7 @@ maxjobcount=3
 backoff=0                   
 #list of cams to check
 list=$HOME/cb/list.txt      
-#auto add streams to cam list
+#auto add saved streams to cam list
 autoadd=yes
 #where to write output
 outputdir=$HOME/cb/out/     
@@ -16,7 +16,7 @@ archive_dest="acd-cam:incoming/"
 livestreamer=streamlink
 
 maxjobs() {
-   while [ `jobs | wc -l` -ge $maxjobcount ]
+   while [ $(jobs|wc -l) -ge $maxjobcount ]
    do
       sleep 5
    done
@@ -24,7 +24,7 @@ maxjobs() {
 
 archivestream() {
     file=$outputdir/$1
-    ffmpeg -nostdin -loglevel error -i "$file.flv" -vcodec copy -acodec libmp3lame "$file.mp4" && rm "$file.flv" && [ -n "$archive_command" ] && $archive_command $file.mp4 $archive_dest
+    ffmpeg -nostdin -loglevel error -i "$file.flv" -vcodec copy -acodec libmp3lame "$file.mp4" && rm "$file.flv" && [ -n "$archive_command" ] && $archive_command "$file.mp4" $archive_dest
 }
 
 getstream () {
@@ -32,7 +32,11 @@ getstream () {
     local date=$(date +%Y-%m-%d.%H-%M)
     local outfile="$outputdir/$user-$date.flv"
     $livestreamer -O http://chaturbate.com/$user best > $outfile ; out=$?
-    [ -s $outfile ] && archivestream $user-$date || rm -f $outfile
+    if [ -s $outfile ]; then
+	archivestream $user-$date
+    else
+	rm -f $outfile
+    fi
     return $out
 }
 
@@ -42,31 +46,38 @@ loopstream() {
     local delay=1
     until [[ $count -eq 0 || $count -eq 10 ]] ; do 
 	getstream $user
-	count=$((${count}+${out}))
-	delay=$((${delay}+${backoff}))
+	count=$(($count+$out))
+	delay=$(($delay+$backoff))
 	echo count: $count delay: $delay
 	sleep ${delay}m
     done
 }    
 
 findstream() {
+    local cam
     for cam in $(tac $list|sed -e 'sShttp[s]*://chaturbate.com/SS' -e 'sS/$SS'); do
-	ps ax|grep -q [c]haturbate.com/$cam || (getstream $cam && loopstream $cam)
+	ps ax|grep -q [c]haturbate.com/$cam || save $cam
     done
 }    
 
 sanitizeurl() {
-    echo $1|sed -e 'sShttp[s]*://chaturbate.com/SS' -e 'sS/$SS'
+    echo $1|sed -e 'sShttp[s]*://chaturbate.com/SS' -e 'sS/$SS' -e 's/ /_/g'
 }
 
 add() {
-    local cam=$(sanitizeurl $1)
+    local cam=$(sanitizeurl "$1")
     grep -q $cam $list || echo $cam >> $list
 }
 
+save() {
+    local cam=$(sanitizeurl "$1")
+    [ "$autoadd" == "yes" ] && add $cam
+    getstream $cam && loopstream $cam
+}
+
 daemon() {
-#main loop, wait up to 1 minute between starting new jobs
-while [ . ]; do 
+#loop forever, wait up to 1 minute between starting new jobs
+while true; do 
    maxjobs; findstream &
    sleep $(($RANDOM/540))s
 done
@@ -77,10 +88,7 @@ wait
 
 [ "$1" == "daemon" ] && daemon
 
-[ -z "$2" ] && echo "$0 [add|save] <cam>" && exit 1
+[ -z "$2" ] && echo "$0 [daemon]|[add|save <cam>]" && exit 1
 
-[ "$1" == "add" ] && add $2
-[ "$1" == "save" ] && cam=$(sanitizeurl $2) && getstream $cam && loopstream $cam
-
-
-
+[ "$1" == "add" ] && add "$2"
+[ "$1" == "save" ] && save "$2"
