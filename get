@@ -1,0 +1,35 @@
+#!/bin/bash
+[ ! "$1" ] && echo $0 URL [URL [URL]...]
+
+getit() {
+    #chaturbate
+    if [[ "$url" =~ "chaturbate.com" ]]; then 
+	cb get $url
+
+    #imgur
+    elif [[ "$url" =~ "imgur.com" ]]; then 
+	if [[ "$url" =~ "jpg$" ]]; then wget https://$url;
+	elif [[ "$url" =~ "imgur.com/a/" ]]; then imguralbum.py https://$url;
+	elif [[ "$url" =~ "imgur.com/gallery/" ]]; then imguralbum.py https://${url/gallery/a};
+	else
+	    imgurl="https://$(echo $url|sed -e s/^.*imgur.com/i.imgur.com/ -e s/$/.jpg/ -e s/.jpg.jpg$/.jpg/)"
+	    wget -q -nc $imgurl || wget -q -nc ${imgurl/%.jpg/.png} || wget -q -nc ${imgurl/%.jpg/.gif}
+	fi
+
+    #gawker
+    elif [[ "$url" =~ "i.kinja-img.com" ]]; then
+	wget https://$(echo $url|sed sS/c_scale.fl.progressive.q[0-9w,_]*[^/]/S/S)
+
+    #fallback
+    else
+	#try with youtube-url.  if successful, exit.  this is kinda slow.
+	youtube-dl -q -s https://$url 2>/dev/null && youtube-dl https://$1 && return
+	#use wget with https, then http if it fails.
+	wget -q -nc https://$url || wget -q -nc http://$url
+    fi
+}
+
+for arg in $*; do
+    url=${arg#http*://}
+    getit $url
+done

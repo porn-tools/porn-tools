@@ -49,9 +49,10 @@ loopstream() {
     local delay=1
     until [[ $count -eq 0 || $count -eq 10 ]] ; do 
 	getstream $user
+	out=$?
 	count=$(($count+$out))
 	delay=$(($delay+$backoff))
-	echo count: $count delay: $delay
+	echo count: $count delay: $delay out: $out
 	sleep ${delay}m
     done
 }    
@@ -72,10 +73,25 @@ add() {
     grep -q $cam $list || echo $cam >> $list
 }
 
+remove() {
+    local cam=$(sanitizeurl "$1")
+    local tmpfile=$(mktemp)
+    grep -q $cam $list || echo $cam is not in $list.
+    grep -v "^${cam}\$" $list > $tmpfile && mv -f $tmpfile $list
+}
+
 save() {
     local cam=$(sanitizeurl "$1")
     [ "$autoadd" == "yes" ] && add $cam
+    ps ax|grep -q [c]haturbate.com/$cam || { echo $cam already being saved. ;exit 1; }
     getstream $cam && loopstream $cam
+}
+
+stalk() {
+    local cam=$(sanitizeurl "$1")
+    while true; do 
+	save $cam
+    done
 }
 
 daemon() {
@@ -87,11 +103,25 @@ done
 wait
 }
 
-[ -z "$1" ] && echo "$0 [daemon]|[add|save <cam>]" && exit 1
+show_help() {
+    echo "$0 [daemon]|[add|del|save|stalk <cam>]"
+    echo .
+    echo 'daemon - enter daemon mode, save cams from list'
+    echo 'add <cam> - add cam to list'
+    echo 'del <cam> - remove cam from list'
+    echo 'save <cam> - save current cam stream'
+    echo 'stalk <cam> - save current cam stream and retry forever'
+}
+
+[ -z "$1" ] && show_help && exit 1
 
 [ "$1" == "daemon" ] && daemon
 
-[ -z "$2" ] && echo "$0 [daemon]|[add|save <cam>]" && exit 1
+[ -z "$2" ] && show_help && exit 1
 
 [ "$1" == "add" ] && add "$2"
+[ "$1" == "del" ] && remove "$2"
+[ "$1" == "delete" ] && remove "$2"
+[ "$1" == "remove" ] && remove "$2"
 [ "$1" == "save" ] && save "$2"
+[ "$1" == "stalk" ] && stalk "$2"
