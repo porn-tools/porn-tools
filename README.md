@@ -9,6 +9,7 @@ Currently contains two scripts:
 * https://www.gnu.org/software/wget/
 * https://rg3.github.io/youtube-dl/
 * https://github.com/alexgisby/imgur-album-downloader
+* https://github.com/althonos/instaLooter
 
 **cb** takes several arguments:
 * **save** followed by a room name or URL will save a live room.  It will retry for some time if the room goes away, in case it returns shortly.

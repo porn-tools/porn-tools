@@ -2,31 +2,52 @@
 [ ! "$1" ] && echo $0 URL [URL [URL]...]
 
 getit() {
-    #chaturbate
+    #chaturbate.com
     if [[ "$url" =~ "chaturbate.com" ]]; then 
 	cb save $url
 
-    #imgur
+    #imgbox.com
+    elif [[ "$url" =~ "imgbox.com" ]]; then
+	dir=$(echo $url|sed s%.*imgbox.com/./%%)
+	for img in $(wget $url -O - | grep -o src=".*imgbox.com.*" |cut -d\" -f2); do
+	    mkdir -p $dir
+	    wget -P $dir $img
+	done
+
+    #imgur.com
     elif [[ "$url" =~ "imgur.com" ]]; then 
 	if [[ "$url" =~ "jpg$" ]]; then wget https://$url;
 	elif [[ "$url" =~ "imgur.com/a/" ]]; then imguralbum.py https://$url;
 	elif [[ "$url" =~ "imgur.com/gallery/" ]]; then imguralbum.py https://${url/gallery/a};
 	else
-	    imgurl="https://$(echo $url|sed -e s/^.*imgur.com/i.imgur.com/ -e s/$/.jpg/ -e s/.jpg.jpg$/.jpg/)"
+	    imgurl="https://$(echo $url|sed -e s%^.*imgur.com%i.imgur.com% -e s%$%.jpg% -e s%.jpg.jpg$%.jpg%)"
 	    wget -q -nc $imgurl || wget -q -nc ${imgurl/%.jpg/.png} || wget -q -nc ${imgurl/%.jpg/.gif}
 	fi
 
+    #instagram
+    elif [[ "$url" =~ "instagram.com" ]]; then
+	instalooter=$(type -p instalooter instaLooter InstaLooter|awk '{print $1}')
+	[ -n "$instalooter" ] && $instalooter -v $(echo $url|sed -e s%http*instagram.com/%% -e s%/%%)
+
     #gawker
     elif [[ "$url" =~ "i.kinja-img.com" ]]; then
-	wget https://$(echo $url|sed sS/c_scale.fl.progressive.q[0-9w,_]*[^/]/S/S)
+	wget https://$(echo $url|sed s%/c_scale.fl.progressive.q[0-9w,_]*[^/]/%/%)
 
     #fallback
+    elif [[ "$url" =~ "jpg" -o "$url" =~ "jpeg" -o "$url" =~ "gif" -o "$url" =~ "png" ]]; then
+	wgetit $url
     else
-	#try with youtube-url.  if successful, exit.  this is kinda slow.
+	#try with youtube-url.  if successful, return.  this is kinda slow.
 	youtube-dl -q -s https://$url 2>/dev/null && youtube-dl https://$1 && return
-	#use wget with https, then http if it fails.
-	wget -q -nc https://$url || wget -q -nc http://$url
+	#if youtube-dl was unsuccessful, use wget on it
+	wgetit $url
     fi
+}
+
+wgetit() {
+    local wgeturl=$1
+    #use wget with https, then http if it fails.
+    wget -q -nc https://$wgeturl || wget -q -nc http://$wgeturl
 }
 
 for arg in $*; do
