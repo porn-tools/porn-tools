@@ -2,7 +2,7 @@
 #max number of simultaneous streams
 maxjobcount=3               
 #increase delay by n minutes for every retry
-backoff=0                   
+backoff=0
 #where to write output
 outputdir=$HOME/cb/out/     
 #list of cams to check
@@ -60,7 +60,7 @@ loopstream() {
 findstream() {
     local cam
     for cam in $(tac $list|sed -e 'sShttp[s]*://chaturbate.com/SS' -e 'sS/$SS'); do
-	ps ax|grep -q [c]haturbate.com/$cam || save $cam
+	ps ax|grep -q [c]haturbate.com/$cam || { getstream $cam && loopstream $cam; }
     done
 }    
 
@@ -91,6 +91,7 @@ stalk() {
     local cam=$(sanitizeurl "$1")
     while true; do 
 	save $cam
+	sleep 10m 
     done
 }
 
