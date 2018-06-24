@@ -2,14 +2,17 @@
 maxjobcount=3                  #max number of simultaneous streams
 backoff=0                      #increase delay by n minutes for every retry
 outputdir=$HOME/cb/out/        #where to write output
-list=$HOME/cb/list.txt         #list of cams to check
+list=$HOME/cb/list.txt         #list of cams to check. last first
+search="https://chaturbate.com/exhibitionist-cams/" #default search list
+genders="fc"                   #cam genders to find, f=female c=couple
+                               #s=trans, m=male. list of unseparated characters
 autoadd=yes                    #auto add saved streams to cam list
-upload_cmd="rclone -v"         #command to upload streams
-upload_dest="p:cam/cb/"        #where to save with upload command
-upload_dest_add_user=true      #store file in dir named for user
-archive_cmd="$upload_cmd"      #uncomment to auto-archive streams
-archive_dest="p:cam/incoming/" #where to save auto-archived streams
-#archive_dest_add_user=true    #store file in dir named for user
+upload_cmd="rclone -v"         #uncomment to auto-upload streams
+upload_dest="p:cam/incoming/"  #where to save auto-uploadd streams
+#upload_dest_add_user=true     #store file in dir named for user
+archive_cmd="rclone -v"        #command to archive streams
+archive_dest="p:cam/cb/"       #where to save with archive command
+archive_dest_add_user=true     #store file in dir named for user
 livestreamer=streamlink        #stream recorder app
 
 mkdir -p $outputdir
@@ -22,21 +25,27 @@ maxjobs() {
    done
 }
 
-upload() {
+searchcams() {
+    [ -n "$1" ] && search="$1"
+    lynx -source $search|grep -B1 gender[$genders]|grep href|cut -d\" -f2|tr -d /|tac > $list
+}
+
+archive() {
     shift
     local file
     for file in "$@"; do
-	local upload_dir=$upload_dest
-	[ -z "$upload_cmd" ] && echo "\$upload_cmd not defined." && exit 1
-	[ -n "$upload_dest_add_user" ] && local upload_dir=$upload_dest/$(echo $file|cut -d- -f1) && ${upload_cmd/-v/-q} "mkdir" "$upload_dir"
-	$upload_cmd "move" "$file" "$upload_dir/"
+	local archive_dir=$archive_dest
+	[ -z "$archive_cmd" ] && echo "\$archive_cmd not defined." && exit 1
+	[ -n "$archive_dest_add_user" ] && local archive_dir=$archive_dest/$(echo $(basename $file)|cut -d- -f1) && ${archive_cmd/-v/-q} "mkdir" "$archive_dir"
+	[ -f $file ] || file=$upload_dest/$file
+	$archive_cmd "move" "$file" "$archive_dir/"
     done
 }
 
-archivestream() {
+uploadstream() {
     local file=$outputdir/$1
-    [ -n "$upload_dest_add_user" ] && local upload_dir=$upload_dest/$(echo $file|cut -d- -f1) && ${upload_cmd/-v/-q} "mkdir" "$upload_dir"
-    ffmpeg -nostdin -loglevel error -i "$file.flv" -vcodec copy -acodec libmp3lame "$file.mp4" && rm "$file.flv" && [ -n "$archive_cmd" ] && $archive_cmd "move" "$file.mp4" $archive_dest
+    [ -n "$archive_dest_add_user" ] && local archive_dir=$archive_dest/$(echo $file|cut -d- -f1) && ${archive_cmd/-v/-q} "mkdir" "$archive_dir"
+    ffmpeg -nostdin -loglevel error -i "$file.flv" -vcodec copy -acodec libmp3lame "$file.mp4" && rm "$file.flv" && [ -n "$upload_cmd" ] && $upload_cmd "move" "$file.mp4" $upload_dest
 }
 
 getstream () {
@@ -45,7 +54,7 @@ getstream () {
     local outfile="$outputdir/$user-$date.flv"
     $livestreamer -O http://chaturbate.com/$user best > $outfile ; out=$?
     if [ -s $outfile ]; then
-	archivestream $user-$date
+	uploadstream $user-$date
     else
 	rm -f $outfile
     fi
@@ -107,6 +116,7 @@ stalk() {
 daemon() {
 #loop forever, wait up to 1 minute between starting new jobs
 while true; do 
+   [ "$2" == "search" ] && list=$(mktemp) && searchcams "$3" && trap 'rm -f "$list"' 0
    maxjobs; findstream &
    sleep $(($RANDOM/540))s
 done
@@ -116,7 +126,7 @@ wait
 show_help() {
     echo "$0 [daemon]|[add|del|save|stalk <cam>]"
     echo .
-    echo 'daemon - enter daemon mode, save cams from list'
+    echo 'daemon [search] - enter daemon mode, save cams from list or search'
     echo 'add <cam> - add cam to list'
     echo 'del <cam> - remove cam from list'
     echo 'save <cam> - save current cam stream'
@@ -125,7 +135,7 @@ show_help() {
 
 [ -z "$1" ] && show_help && exit 1
 
-[ "$1" == "daemon" ] && daemon
+[ "$1" == "daemon" ] && daemon "$@"
 
 [ -z "$2" ] && show_help && exit 1
 
@@ -135,4 +145,4 @@ show_help() {
 [ "$1" == "remove" ] && remove "$2"
 [ "$1" == "save" ] && save "$2"
 [ "$1" == "stalk" ] && stalk "$2"
-[ "$1" == "upload" ] && upload "$@"
+[ "$1" == "archive" ] && archive "$@"
