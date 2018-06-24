@@ -1,19 +1,16 @@
 #!/bin/bash
-#max number of simultaneous streams
-maxjobcount=3               
-#increase delay by n minutes for every retry
-backoff=0
-#where to write output
-outputdir=$HOME/cb/out/     
-#list of cams to check
-list=$HOME/cb/list.txt      
-#auto add saved streams to cam list
-autoadd=yes
-#archive command (<src> <dst> args are added later) and destination
-archive_command="rclone --no-check-certificate=true move"
-archive_dest="acd-cam:incoming/"
-#stream recorder app
-livestreamer=streamlink
+maxjobcount=3                  #max number of simultaneous streams
+backoff=0                      #increase delay by n minutes for every retry
+outputdir=$HOME/cb/out/        #where to write output
+list=$HOME/cb/list.txt         #list of cams to check
+autoadd=yes                    #auto add saved streams to cam list
+upload_cmd="rclone -v"         #command to upload streams
+upload_dest="p:cam/cb/"        #where to save with upload command
+upload_dest_add_user=true      #store file in dir named for user
+archive_cmd="$upload_cmd"      #uncomment to auto-archive streams
+archive_dest="p:cam/incoming/" #where to save auto-archived streams
+#archive_dest_add_user=true    #store file in dir named for user
+livestreamer=streamlink        #stream recorder app
 
 mkdir -p $outputdir
 [ -f $list ] && touch $list
@@ -25,9 +22,21 @@ maxjobs() {
    done
 }
 
+upload() {
+    shift
+    local file
+    for file in "$@"; do
+	local upload_dir=$upload_dest
+	[ -z "$upload_cmd" ] && echo "\$upload_cmd not defined." && exit 1
+	[ -n "$upload_dest_add_user" ] && local upload_dir=$upload_dest/$(echo $file|cut -d- -f1) && ${upload_cmd/-v/-q} "mkdir" "$upload_dir"
+	$upload_cmd "move" "$file" "$upload_dir/"
+    done
+}
+
 archivestream() {
-    file=$outputdir/$1
-    ffmpeg -nostdin -loglevel error -i "$file.flv" -vcodec copy -acodec libmp3lame "$file.mp4" && rm "$file.flv" && [ -n "$archive_command" ] && $archive_command "$file.mp4" $archive_dest
+    local file=$outputdir/$1
+    [ -n "$upload_dest_add_user" ] && local upload_dir=$upload_dest/$(echo $file|cut -d- -f1) && ${upload_cmd/-v/-q} "mkdir" "$upload_dir"
+    ffmpeg -nostdin -loglevel error -i "$file.flv" -vcodec copy -acodec libmp3lame "$file.mp4" && rm "$file.flv" && [ -n "$archive_cmd" ] && $archive_cmd "move" "$file.mp4" $archive_dest
 }
 
 getstream () {
@@ -126,3 +135,4 @@ show_help() {
 [ "$1" == "remove" ] && remove "$2"
 [ "$1" == "save" ] && save "$2"
 [ "$1" == "stalk" ] && stalk "$2"
+[ "$1" == "upload" ] && upload "$@"
