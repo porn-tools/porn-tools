@@ -16,7 +16,8 @@ Currently contains two scripts:
 * **stalk** followed by a room name or URL will save a live room.  It will retry forever, until killed.
 * **add** followed by a room or URL will add it to the download list.
 * **remove** followed by a room or URL will remove it to the download list.
-* **daemon** runs continually.  It looks at your download list, and tries to download each one, latest first.  If the room is not up, it goes on to the next.  It will not try to capture more than a set number (3 by default) of streams at once so as not to consume all of your bandwidth.  After a stream ends, it reencodes the audio to fix the A/V sync, and then optionally archives the file.  All of the configuration is in variables in the first few lines of the script.
+* **archive** uploads a recording to remote storage. This will accept files with a local path, or files which have been automatically uploaded.  This allows you to have a separate incoming directory from the final storage place.
+* **daemon** runs continually.  It has one option, **search**, which will search for cams matching cams from a chaturbate url.  Without this option, it looks at your download list, and tries to download each one, latest first.  If the room is not up, it goes on to the next.  It will not try to capture more than a set number (3 by default) of streams at once so as not to consume all of your bandwidth.  After a stream ends, it reencodes the audio to fix the A/V sync, and then optionally uploads the file to remote storage.  All of the configuration is in variables in the first few lines of the script.
 
 cb will also optionally archive files to a remote location once finished.  Other configuration options are at the top of the script.
 
