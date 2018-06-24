@@ -29,6 +29,7 @@ Optionally useful tools for cb:
 * [rclone](http://rclone.org) - archive to cloud storage
 
 Other potentially useful tools for downloading video and pictures (some of these I haven't tested yet):
+* https://github.com/4pr0n/ripme - great for downloading stuff from reddit, imgur, others
 * https://github.com/soimort/you-get
 * https://github.com/NSFWYui/Reddit-porn-downloader
 * https://github.com/fake-name/DanbooruScraper
