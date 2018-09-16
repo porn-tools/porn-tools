@@ -1,5 +1,5 @@
 #!/bin/bash
-maxjobcount=3                  #max number of simultaneous streams
+maxjobcount=8                  #max number of simultaneous streams
 backoff=0                      #increase delay by n minutes for every retry
 outputdir=$HOME/cb/out/        #where to write output
 list=$HOME/cb/list.txt         #list of cams to check. last first
@@ -14,6 +14,7 @@ archive_cmd="rclone -v"        #command to archive streams
 archive_dest="p:cam/cb/"       #where to save with archive command
 archive_dest_add_user=true     #store file in dir named for user
 livestreamer=streamlink        #stream recorder app
+livestreamer_opts=""           #optional arguments for the stream recorder
 
 mkdir -p $outputdir
 [ -f $list ] && touch $list
@@ -52,7 +53,7 @@ getstream () {
     local user=$1
     local date=$(date +%Y-%m-%d.%H-%M)
     local outfile="$outputdir/$user-$date.flv"
-    $livestreamer -O http://chaturbate.com/$user best > $outfile ; out=$?
+    $livestreamer $livestreamer_opts -O http://chaturbate.com/$user best > $outfile ; out=$?
     if [ -s $outfile ]; then
 	uploadstream $user-$date
     else
@@ -101,7 +102,7 @@ remove() {
 save() {
     local cam=$(sanitizeurl "$1")
     [ "$autoadd" == "yes" ] && add $cam
-    ps ax|grep -q [c]haturbate.com/$cam || { echo $cam already being saved. ;exit 1; }
+    ps ax|grep -q "$livestreamer.*[c]haturbate.com/$cam" && echo "$cam already being saved." && exit 1
     getstream $cam && loopstream $cam
 }
 
